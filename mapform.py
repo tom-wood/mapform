@@ -5,10 +5,12 @@ import itertools as it
 class AtomStructure:
     def __init__(self, anions, cations, key={2:[(0.3, 0.3, 0.3), 0.5],
                                              1:[(0.3, 0.6, 0.3), 0.5],
-                                             -8:[(1, 0, 0), 0.5]}):
+                                             -8:[(1, 0, 0), 0.5]},
+                 costs=None):
         self.anions = anions
         self.cations = cations
         self.key = key
+        self.costs = costs
     def get_uc_vertices(self):
         x, y, z = self.anions.shape
         ucv = np.array([[0, 0, 0], [x, 0, 0], [0, y, 0], [0, 0, z],
@@ -34,18 +36,17 @@ class AtomStructure:
         ucp4 = mlab.plot3d(ucpaths[3][0], ucpaths[3][1], ucpaths[3][2], 
                            color=(0, 0, 0))
         return
-    def repeat_anions(self):
-        exp_anions = np.zeros([i + 1 for i in self.anions.shape], 
+    def repeat_anions(self, anions):
+        exp_anions = np.zeros([i + 1 for i in anions.shape], 
                               dtype='int64')
-        exp_anions[self.anions.nonzero()] = self.anions\
-                                             [self.anions.nonzero()]
+        exp_anions[anions.nonzero()] = anions[anions.nonzero()]
         exp_anions[-1, :, :] = exp_anions[0, :, :]
         exp_anions[:, -1, :] = exp_anions[:, 0, :]
         exp_anions[:, :, -1] = exp_anions[:, :, 0]
         return exp_anions
     def plot_anions(self):
         x, y, z = [np.array(arr, dtype='float64') for arr in 
-                   self.repeat_anions().nonzero()]
+                   self.repeat_anions(self.anions).nonzero()]
         anions = mlab.points3d(x, y, z, color=(1, 0, 0), resolution=32)
     def plot_cations(self):
         for i in self.key:
@@ -54,18 +55,29 @@ class AtomStructure:
                           scale_factor=self.key[i][1])
     def plot_bonds(self):
         cat_is = list(it.product([0, -1], repeat=3))
-        for xyz in np.transpose(self.repeat_anions().nonzero()):
+        for xyz in np.transpose(self.repeat_anions(self.anions).nonzero()):
             cats = np.array([arr + xyz for arr in cat_is])
             cat_bools = [np.logical_and(cats[:, i] >= 0, 
                                         cats[:, i] < self.cations.shape[i])
                          for i in range(3)]
             cats = cats[np.all(cat_bools, axis=0)]
-            print cats
             for c in cats:
                 if self.cations[tuple(c)]:
                     x, y, z = tuple(np.transpose(np.vstack((xyz, c + 0.5))))
                     mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7))
-            
+    def plot_anion_costs(self):
+        xyz = self.repeat_anions(self.anions).nonzero()
+        costs = self.repeat_anions(self.costs)[xyz]
+        costs_s = np.abs(costs)**(1./3) + 1
+        costs_max = np.abs(costs).max()
+        #The following is a fudge to ensure that the colour is 
+        #independent from the size of the spheres
+        pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], costs_s, costs_s,
+                            costs_s, scalars=costs, mode='sphere', 
+                            colormap='RdBu', resolution=32, vmin=-costs_max,
+                            vmax=costs_max)
+        pts.glyph.color_mode = 'color_by_scalar'
+        pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
 
 test_anions = np.array([[[-8, 0],
                          [0, -8]],
@@ -75,8 +87,8 @@ test_cats = np.array([[[1, 1],
                        [1, 1]],
                       [[2, 0],
                        [0, 2]]])
-key = {1:'Li', 2:'Zn', -8:'O'}
 
+costs = np.arange(-4, 4).reshape((2, 2, 2))
 
-test = AtomStructure(test_anions, test_cats)
+test = AtomStructure(test_anions, test_cats, costs=costs)
 
