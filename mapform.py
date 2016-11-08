@@ -1,4 +1,5 @@
-#Version 0.1.1---includes local cation environment plotting
+#Version 0.1.2---made plot_anion_costs single colours; moved old
+#plot_anion_costs method to plot_anion_costs_cmap.
 
 import numpy as np
 from mayavi import mlab
@@ -74,12 +75,31 @@ class AtomStructure:
                 if self.cations[tuple(c)]:
                     x, y, z = tuple(np.transpose(np.vstack((xyz, c + 0.5))))
                     mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7))
-    def plot_anion_costs(self):
-        """Plots anion costs on anion positions by size and colormap"""
+    def plot_anion_costs(self, colour_min=(0, 0, 1), colour_max=(1, 0, 0),
+                         colour_zero=(0, 0, 0)):
+        """Plots anion costs on anion positions by size and colours"""
         xyz = self.repeat_anions(self.anions).nonzero()
         costs = self.repeat_anions(self.costs)[xyz]
-        costs_s = np.abs(costs)**(1./3) + 1
+        costs_s = (1.1 * np.abs(costs)) / np.abs(costs).max() + 0.1
+        for i, c in enumerate(costs):
+            if c < 0:
+                mlab.points3d(xyz[0][i], xyz[1][i], xyz[2][i], 
+                              resolution=32, color=colour_min,
+                              scale_factor=costs_s[i])
+            elif c > 0:
+                mlab.points3d(xyz[0][i], xyz[1][i], xyz[2][i], 
+                              resolution=32, color=colour_max,
+                              scale_factor=costs_s[i])
+            else:
+                mlab.points3d(xyz[0][i], xyz[1][i], xyz[2][i], 
+                              resolution=32, color=colour_zero,
+                              scale_factor=costs_s[i])
+    def plot_anion_costs_cmap(self, cm='seismic'):
+        """Plots anion costs on anion positions by size and colourmap"""
+        xyz = self.repeat_anions(self.anions).nonzero()
+        costs = self.repeat_anions(self.costs)[xyz]
         costs_max = np.abs(costs).max()
+        costs_s = (1.1 * np.abs(costs)) / np.abs(costs).max() + 0.1
         #The following is a fudge to ensure that the colour is 
         #independent from the size of the spheres
         pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], costs_s, costs_s,
@@ -139,6 +159,7 @@ test.plot_cell()
 test.plot_anions()
 test.plot_cations()
 test.plot_bonds()
+mlab.orientation_axes()                    
 mlab.show()
 
 mlab.figure()
@@ -146,11 +167,13 @@ test.plot_cell()
 test.plot_anion_costs()
 test.plot_cations()
 test.plot_bonds()
+mlab.orientation_axes()                    
 mlab.show()
 
 
 mlab.figure()
 test.plot_cell()
 test.plot_nearest_cations((0, 0, 0))
+mlab.orientation_axes()                    
 mlab.show()
 """
