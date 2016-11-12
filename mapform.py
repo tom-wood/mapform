@@ -1,4 +1,4 @@
-#Version 0.2.0 alpha---renamed AtomStructure to FccStructure;
+#Version 0.2.0 beta---renamed AtomStructure to FccStructure;
 #added some more user scalability options and a scale attribute;
 #also added a cation_holes attribute to affect other methods
 
