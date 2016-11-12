@@ -1,19 +1,22 @@
-#Version 0.1.2---made plot_anion_costs single colours; moved old
-#plot_anion_costs method to plot_anion_costs_cmap.
+#Version 0.2.0 alpha---renamed AtomStructure to FccStructure;
+#added some more user scalability options and a scale attribute;
+#also added a cation_holes attribute to affect other methods
 
 import numpy as np
 from mayavi import mlab
 import itertools as it
 
-class AtomStructure:
+class FccStructure:
     def __init__(self, anions, cations, key={2:[(0.3, 0.3, 0.3), 0.5],
                                              1:[(0.3, 0.6, 0.3), 0.5],
                                              -8:[(1, 0, 0), 0.5]},
-                 costs=None):
+                 costs=None, scale=1, cation_holes='tetrahedral'):
         self.anions = anions
         self.cations = cations
         self.key = key
         self.costs = costs
+        self.scale = scale
+        self.cation_holes = cation_holes
     def get_uc_vertices(self):
         """Return array with rows corresponding to unit cell vertices"""
         x, y, z = self.anions.shape
@@ -42,7 +45,7 @@ class AtomStructure:
         ucp4 = mlab.plot3d(ucpaths[3][0], ucpaths[3][1], ucpaths[3][2], 
                            color=(0, 0, 0))
         return
-    def repeat_anions(self, anions):
+    def repeat_anions(self, anions):#this method is now deprecated
         """Returns expanded anion array (atoms at zero also at one)"""
         exp_anions = np.zeros([i + 1 for i in anions.shape], 
                               dtype='int64')
@@ -51,35 +54,72 @@ class AtomStructure:
         exp_anions[:, -1, :] = exp_anions[:, 0, :]
         exp_anions[:, :, -1] = exp_anions[:, :, 0]
         return exp_anions
+    def repeat_array(self, ion_arr):
+        """Returns expanded array of atoms (those at zero also at one)"""
+        a, b, c = ion_arr.shape
+        exp_arr = np.zeros((a + 1, b + 1, c + 1), dtype='int64')
+        exp_arr[:a, :b, :c] = ion_arr
+        exp_arr[-1, :, :] = exp_arr[0, :, :]
+        exp_arr[:, -1, :] = exp_arr[:, 0, :]
+        exp_arr[:, :, -1] = exp_arr[:, :, 0]
+        return exp_arr
     def plot_anions(self):
         """Plots anion array"""
         x, y, z = [np.array(arr, dtype='float64') for arr in 
-                   self.repeat_anions(self.anions).nonzero()]
+                   self.repeat_array(self.anions).nonzero()]
         anions = mlab.points3d(x, y, z, color=(1, 0, 0), resolution=32)
     def plot_cations(self):
         """Plots cations"""
         for i in self.key:
-            x, y, z = [arr + 0.5 for arr in np.where(self.cations == i)]
+            if self.cation_holes == 'tetrahedral':
+                x, y, z = [arr + 0.5 for arr in np.where(self.cations == i)]
+            elif self.cation_holes == 'octahedral':
+                exp_cats = self.repeat_array(self.cations)
+                xyz_ans = np.transpose(np.where(self.repeat_array(\
+                                        self.anions) == 0))
+                xyz = []
+                for xyz_a in xyz_ans:
+                    if exp_cats[tuple(xyz_a)] == i:
+                        xyz.append(xyz_a)
+                if xyz:
+                    x, y, z = tuple(np.transpose(xyz))
+                else:
+                    continue
             mlab.points3d(x, y, z, color=self.key[i][0], resolution=32,
                           scale_factor=self.key[i][1])
     def plot_bonds(self):
         """Plots bonds between anions and cations"""
-        cat_is = list(it.product([0, -1], repeat=3))
-        for xyz in np.transpose(self.repeat_anions(self.anions).nonzero()):
+        if self.cation_holes == 'tetrahedral':
+            cat_is = list(it.product([0, -1], repeat=3))
+        elif self.cation_holes == 'octahedral':
+            cat_is = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0),
+                      (0, 0, 1), (0, 0, -1)]
+        for xyz in np.transpose(self.repeat_array(self.anions).nonzero()):
             cats = np.array([arr + xyz for arr in cat_is])
-            cat_bools = [np.logical_and(cats[:, i] >= 0, 
-                                        cats[:, i] < self.cations.shape[i])
-                         for i in range(3)]
+            if self.cation_holes == 'tetrahedral':
+                cat_bools = [np.logical_and(cats[:, i] >= 0, \
+                             cats[:, i] < self.cations.shape[i])
+                             for i in range(3)]
+            elif self.cation_holes == 'octahedral':
+                cat_bools = [np.logical_and(cats[:, i] >= 0, \
+                             cats[:, i] <= self.cations.shape[i])
+                             for i in range(3)]
             cats = cats[np.all(cat_bools, axis=0)]
             for c in cats:
-                if self.cations[tuple(c)]:
-                    x, y, z = tuple(np.transpose(np.vstack((xyz, c + 0.5))))
+                if self.cation_holes == 'tetrahedral':
+                    if self.cations[tuple(c)]:
+                        x, y, z = tuple(np.transpose(np.vstack((xyz, 
+                                                                c + 0.5))))
+                elif self.cation_holes == 'octahedral':
+                    if self.repeat_array(self.cations)[tuple(c)]:
+                        x, y, z = tuple(np.array(np.transpose(\
+                                    np.vstack((xyz, c))), dtype='float64'))
                     mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7))
     def plot_anion_costs(self, colour_min=(0, 0, 1), colour_max=(1, 0, 0),
                          colour_zero=(0, 0, 0)):
         """Plots anion costs on anion positions by size and colours"""
-        xyz = self.repeat_anions(self.anions).nonzero()
-        costs = self.repeat_anions(self.costs)[xyz]
+        xyz = self.repeat_array(self.anions).nonzero()
+        costs = self.repeat_array(self.costs)[xyz]
         costs_s = (1.1 * np.abs(costs)) / np.abs(costs).max() + 0.1
         for i, c in enumerate(costs):
             if c < 0:
@@ -96,8 +136,8 @@ class AtomStructure:
                               scale_factor=costs_s[i])
     def plot_anion_costs_cmap(self, cm='seismic'):
         """Plots anion costs on anion positions by size and colourmap"""
-        xyz = self.repeat_anions(self.anions).nonzero()
-        costs = self.repeat_anions(self.costs)[xyz]
+        xyz = self.repeat_array(self.anions).nonzero()
+        costs = self.repeat_array(self.costs)[xyz]
         costs_max = np.abs(costs).max()
         costs_s = (1.1 * np.abs(costs)) / np.abs(costs).max() + 0.1
         #The following is a fudge to ensure that the colour is 
@@ -115,7 +155,11 @@ class AtomStructure:
                           anion_indices[2], color=(1, 0, 0), resolution=32,
                           scale_factor=0.5)
         a, b, c = self.anions.shape
-        cat_pos = np.array(list(it.product([0, -1], repeat=3)))
+        if self.cation_holes == 'tetrahedral':
+            cat_pos = np.array(list(it.product([0, -1], repeat=3)))
+        elif self.cation_holes == 'octahedral':
+            cat_pos = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], 
+                                [0, -1, 0], [0, 0, 1], [0, 0, -1]])
         cat_pos += np.array(anion_indices)
         cat_is = np.column_stack((np.mod(cat_pos[:, 0], a),
                                   np.mod(cat_pos[:, 1], b),
@@ -125,8 +169,10 @@ class AtomStructure:
             cats = np.array([arr for i1, arr in enumerate(cat_pos) if 
                              list(cat_is[i1]) in 
                              [list(arr2) for arr2 in 
-                              np.transpose(np.where(self.cations == i))]]) \
-                    + 0.5
+                              np.transpose(np.where(self.cations == i))]],
+                            dtype='float64')
+            if self.cation_holes == 'tetrahedral':
+                cats += 0.5
             if cats.shape[0]:
                 x, y, z = np.transpose(cats)
                 mlab.points3d(x, y, z, color=self.key[i][0], resolution=32,
@@ -137,7 +183,6 @@ class AtomStructure:
                                         anion_indices))))
                         mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7))
 
-"""
 #Example follows:
 test_anions = np.array([[[-8, 0],
                          [0, -8]],
@@ -148,12 +193,16 @@ test_cats = np.array([[[1, 1],
                       [[2, 0],
                        [0, 2]]])
 costs = np.arange(-4, 4).reshape((2, 2, 2))
+oct_cats = np.where(test_anions == 0, 2, 0)                        
 
 #key takes the form of cation value, with list of a tuple to determine
 #colour (normalized rgb values) and then a scalar for the atom size wanted)
 key={2:[(0.3, 0.3, 0.3), 0.5], 1:[(0.3, 0.6, 0.3), 0.5]}
-test = AtomStructure(test_anions, test_cats, costs=costs, key=key)
+test = FccStructure(test_anions, test_cats, costs=costs, key=key)
+test_oct = FccStructure(test_anions, oct_cats, costs=costs, key=key,
+                        cation_holes='octahedral')
 
+"""
 mlab.figure()
 test.plot_cell()
 test.plot_anions()
