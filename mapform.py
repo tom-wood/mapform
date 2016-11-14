@@ -1,6 +1,4 @@
-#Version 0.2.0 beta---renamed AtomStructure to FccStructure;
-#added some more user scalability options and a scale attribute;
-#also added a cation_holes attribute to affect other methods
+#Version 0.2.1 beta---added bond colour ability; changed default unit cell
 
 import numpy as np
 from mayavi import mlab
@@ -34,18 +32,17 @@ class FccStructure:
         strut3 = np.vstack((verts[4], verts[7]))
         return [np.array(np.transpose(arr), dtype='float64') for arr in 
                  [faces, strut1, strut2, strut3]]
-    def plot_cell(self):
+    def plot_cell(self, cell_colour=(0, 0, 0)):
         """Plots the unit cell"""
         ucpaths = self.get_ucpaths()
         ucp1 = mlab.plot3d(ucpaths[0][0], ucpaths[0][1], ucpaths[0][2], 
-                           color=(0, 0, 0))
+                           color=cell_colour, tube_radius=None)
         ucp2 = mlab.plot3d(ucpaths[1][0], ucpaths[1][1], ucpaths[1][2], 
-                           color=(0, 0, 0))
+                           color=cell_colour, tube_radius=None)
         ucp3 = mlab.plot3d(ucpaths[2][0], ucpaths[2][1], ucpaths[2][2], 
-                           color=(0, 0, 0))
+                           color=cell_colour, tube_radius=None)
         ucp4 = mlab.plot3d(ucpaths[3][0], ucpaths[3][1], ucpaths[3][2], 
-                           color=(0, 0, 0))
-        return
+                           color=cell_colour, tube_radius=None)
     def repeat_anions(self, anions):#this method is now deprecated
         """Returns expanded anion array (atoms at zero also at one)"""
         exp_anions = np.zeros([i + 1 for i in anions.shape], 
@@ -92,7 +89,7 @@ class FccStructure:
                     continue
             mlab.points3d(x, y, z, color=self.key[i][0], resolution=32,
                           scale_factor=self.key[i][1])
-    def plot_bonds(self, bond_radius=None):
+    def plot_bonds(self, bond_radius=0.05, bond_colour=(0.7, 0.7, 0.7)):
         """Plots bonds between anions and cations"""
         if self.cation_holes == 'tetrahedral':
             cat_is = list(it.product([0, -1], repeat=3))
@@ -120,7 +117,7 @@ class FccStructure:
                         x, y, z = tuple(np.array(np.transpose(\
                                     np.vstack((xyz, c))), dtype='float64')\
                                        * self.scale)
-                mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7), 
+                mlab.plot3d(x, y, z, color=bond_colour, 
                             tube_radius=bond_radius)
     def plot_anion_costs(self, colour_min=(0, 0, 1), colour_max=(1, 0, 0),
                          colour_zero=(0, 0, 0)):
@@ -157,7 +154,8 @@ class FccStructure:
                             vmax=costs_max)
         pts.glyph.color_mode = 'color_by_scalar'
         pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
-    def plot_nearest_cations(self, anion_indices, bond_radius=None):
+    def plot_nearest_cations(self, anion_indices, bond_radius=0.05,
+                             bond_colour=(0.7, 0.7, 0.7)):
         """Given anion indices plots anion with surrounding cations"""
         if self.anions[anion_indices]:
             ais = [ai * self.scale for ai in anion_indices]
@@ -192,10 +190,9 @@ class FccStructure:
                     for cat in cats:
                         x, y, z = tuple(np.transpose(np.vstack((cat,
                                         anion_indices))) * self.scale)
-                        mlab.plot3d(x, y, z, color=(0.7, 0.7, 0.7),
+                        mlab.plot3d(x, y, z, color=bond_colour,
                                     tube_radius=bond_radius)
 
-"""
 #Example follows:
 test_anions = np.array([[[-8, 0],
                          [0, -8]],
@@ -246,9 +243,8 @@ test_oct.plot_bonds()
 mlab.orientation_axes()                    
 mlab.show()
 
-mlab.figure()
-test_oct.plot_cell()
-test_oct.plot_nearest_cations((0, 0, 0))
+mlab.figure(bgcolor=(0, 0, 0))
+test_oct.plot_cell(cell_colour=(1, 1, 1))
+test_oct.plot_nearest_cations((0, 0, 0), bond_colour=(0.8, 0.8, 0.6))
 mlab.orientation_axes()                    
 mlab.show()
-"""
