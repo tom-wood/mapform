@@ -1,4 +1,5 @@
-#Version 0.2.1 beta---added bond colour ability; changed default unit cell
+#Version 0.2.1 beta 
+#Changes made 03/01/17: fixed bug in plot_bonds()
 
 import numpy as np
 from mayavi import mlab
@@ -112,13 +113,15 @@ class FccStructure:
                     if self.cations[tuple(c)]:
                         x, y, z = tuple(np.transpose(np.vstack((xyz, 
                                         c + 0.5))) * self.scale)
+                        mlab.plot3d(x, y, z, color=bond_colour, 
+                                    tube_radius=bond_radius)
                 elif self.cation_holes == 'octahedral':
                     if self.repeat_array(self.cations)[tuple(c)]:
                         x, y, z = tuple(np.array(np.transpose(\
                                     np.vstack((xyz, c))), dtype='float64')\
                                        * self.scale)
-                mlab.plot3d(x, y, z, color=bond_colour, 
-                            tube_radius=bond_radius)
+                        mlab.plot3d(x, y, z, color=bond_colour, 
+                                    tube_radius=bond_radius)
     def plot_anion_costs(self, colour_min=(0, 0, 1), colour_max=(1, 0, 0),
                          colour_zero=(0, 0, 0)):
         """Plots anion costs on anion positions by size and colours"""
@@ -213,6 +216,7 @@ test = FccStructure(test_anions, test_cats, costs=costs, key=key)
 test_oct = FccStructure(test_anions, oct_cats, costs=costs, key=key,
                         cation_holes='octahedral')
 
+"""
 mlab.figure()
 test.plot_cell()
 test.plot_anions()
@@ -248,3 +252,4 @@ test_oct.plot_cell(cell_colour=(1, 1, 1))
 test_oct.plot_nearest_cations((0, 0, 0), bond_colour=(0.8, 0.8, 0.6))
 mlab.orientation_axes()                    
 mlab.show()
+"""
