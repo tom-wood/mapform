@@ -1,6 +1,7 @@
-#Version 0.2.2 alpha
-#Changes made 04/01/17: refashioned plot_anion_costs() to use quiver3d;
-#added animate_anion_costs() function
+#Version 0.2.3 alpha
+#Changes made 05/01/17: redid plot_cations() to return list of scenes;
+#added animate_cations() function; fixed bug in plot_cell() to allow
+#scale to be a float; added plot_cost_cation_environments() method.
 
 import numpy as np
 from mayavi import mlab
@@ -23,7 +24,7 @@ class FccStructure:
         x, y, z = self.anions.shape
         ucv = np.array([[0, 0, 0], [x, 0, 0], [0, y, 0], [0, 0, z],
                         [x, y, 0], [x, 0, z], [0, y, z], [x, y, z]])
-        ucv *= self.scale
+        ucv = ucv.astype('float64') * self.scale
         return ucv
     def get_ucpaths(self):
         """Return series of paths which combined plot out a unit cell"""
@@ -73,8 +74,13 @@ class FccStructure:
         anions = mlab.points3d(x, y, z, color=colour, resolution=32,
                               scale_factor=atom_scale)
     def plot_cations(self):
-        """Plots cations"""
+        """Return mlab points3d instances for each type of cation"""
+        f = mlab.gcf()
+        f.scene.disable_render=True
+        pts = []
         for i in self.key:
+            if i <= 0:
+                continue
             if self.cation_holes == 'tetrahedral':
                 x, y, z = [(arr + 0.5) * self.scale for arr in 
                            np.where(self.cations == i)]
@@ -82,16 +88,61 @@ class FccStructure:
                 exp_cats = self.repeat_array(self.cations)
                 xyz_ans = np.transpose(np.where(self.repeat_array(\
                                         self.anions) == 0))
-                xyz = []
-                for xyz_a in xyz_ans:
-                    if exp_cats[tuple(xyz_a)] == i:
-                        xyz.append(xyz_a)
+                xyz = [xyz_a for xyz_a in xyz_ans if 
+                       exp_cats[tuple(xyz_a)] == i]
                 if xyz:
                     x, y, z = tuple(np.transpose(xyz) * self.scale)
                 else:
                     continue
-            mlab.points3d(x, y, z, color=self.key[i][0], resolution=32,
-                          scale_factor=self.key[i][1])
+            pts.append(mlab.points3d(x, y, z, color=self.key[i][0], 
+                                     resolution=32, 
+                                     scale_factor=self.key[i][1]))
+        f.scene.disable_render=False
+        return pts
+    def animate_cations(self, cat_list):
+        """Plots cations"""
+        f = mlab.gcf()
+        x_vals, y_vals, z_vals = [], [], []
+        for cats in cat_list:
+            xvs, yvs, zvs = [], [], []
+            for i in self.key:
+                if i <= 0:
+                    continue
+                if self.cation_holes == 'tetrahedral':
+                    x, y, z = [(arr + 0.5) * self.scale for arr in 
+                               np.where(cats == i)]
+                    xvs.append(x)
+                    yvs.append(y)
+                    zvs.append(z)
+                elif self.cation_holes == 'octahedral':
+                    exp_cats = self.repeat_array(cats)
+                    xyz_ans = np.transpose(np.where(self.repeat_array(\
+                                            self.anions) == 0))
+                    xyz = [xyz_a for xyz_a in xyz_ans if 
+                           exp_cats[tuple(xyz_a)] == i]
+                    if xyz:
+                        x, y, z = tuple(np.transpose(xyz) * self.scale)
+                        xvs.append(x)
+                        yvs.append(y)
+                        zvs.append(z)
+                    else:
+                        continue
+            x_vals.append(xvs)
+            y_vals.append(yvs)
+            z_vals.append(zvs)
+        for i1, cats in enumerate(cat_list):
+            f.scene.disable_render=True
+            for i2, val in enumerate(self.key):
+                if val <=0:
+                    continue
+                else:
+                    mlab.points3d(x_vals[i1][i2], y_vals[i1][i2],
+                                  z_vals[i1][i2], color=self.key[val][0],
+                                  resolution=32, 
+                                  scale_factor=self.key[val][1])
+            f.scene.disable_render=False
+            time.sleep(1)
+        return
     def plot_bonds(self, bond_radius=0.05, bond_colour=(0.7, 0.7, 0.7)):
         """Plots bonds between anions and cations"""
         if self.cation_holes == 'tetrahedral':
@@ -160,24 +211,27 @@ class FccStructure:
                                    np.ones(len(colours)))) *\
                    255).astype(np.uint8)
         return colours
-
     def plot_anion_costs(self, colour_min=(0, 0, 1), colour_max=(1, 0, 0),
                          colour_zero=(0, 0, 0)):
         """Plots anion costs on anion positions by size and colours"""
+        f = mlab.gcf()
         xyz = self.repeat_array(self.anions).nonzero()
         costs = self.repeat_array(self.costs)[xyz]
         #costs_s = (1.1 * np.abs(costs)) / np.abs(costs).max() + 0.1
-        costs_s = (costs + 0.5) * 0.1
+        costs_s = (np.abs(costs) + 0.5) * 0.5
         xyz = [arr * self.scale for arr in xyz]
         colours = self._get_anion_cost_cols(costs, colour_min, colour_max, 
                                             colour_zero)
         scalars = np.arange(len(colours))
+        f.scene.disable_render=True
         pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], costs_s, costs_s,
                             costs_s, scalars=scalars, mode='sphere',
                             resolution=32, scale_factor=1)
         pts.glyph.color_mode = 'color_by_scalar'
+        pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
         pts.module_manager.scalar_lut_manager.lut.table = colours
         mlab.draw()
+        f.scene.disable_render = False
         return pts
     def animate_anion_costs(self, anion_costs, colour_min=(0, 0, 1), 
                             colour_max=(1, 0, 0), colour_zero=(0, 0, 0)):
@@ -196,7 +250,7 @@ class FccStructure:
         f = mlab.gcf()
         xyz = self.repeat_array(self.anions).nonzero()
         cost_arrs = [self.repeat_array(c)[xyz] for c in anion_costs]
-        cost_arrs_s = [(c + 0.5) * 0.5 for c in cost_arrs]
+        cost_arrs_s = [(np.abs(c) + 0.5) * 0.5 for c in cost_arrs]
         xyz = [arr * self.scale for arr in xyz]
         col_lists = [self._get_anion_cost_cols(c, colour_min, colour_max,
                                                colour_zero) for c in
@@ -208,6 +262,7 @@ class FccStructure:
                             cost_arrs_s[0], cost_arrs_s[0], scalars=scalars,
                             mode='sphere', resolution=32, scale_factor=1)
         pts.glyph.color_mode = 'color_by_scalar'
+        pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
         pts.module_manager.scalar_lut_manager.lut.table = col_lists[0]
         mlab.draw()
         f.scene.disable_render = False
@@ -221,7 +276,6 @@ class FccStructure:
             mlab.draw()
             f.scene.disable_render = False
         return
-
     def plot_anion_costs_cmap(self, cm='seismic'):
         """Plots anion costs on anion positions by size and colourmap"""
         xyz = self.repeat_array(self.anions).nonzero()
@@ -237,6 +291,7 @@ class FccStructure:
                             vmax=costs_max)
         pts.glyph.color_mode = 'color_by_scalar'
         pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
+        return pts
     def plot_nearest_cations(self, anion_indices, bond_radius=0.05,
                              bond_colour=(0.7, 0.7, 0.7)):
         """Given anion indices plots anion with surrounding cations"""
@@ -275,6 +330,14 @@ class FccStructure:
                                         anion_indices))) * self.scale)
                         mlab.plot3d(x, y, z, color=bond_colour,
                                     tube_radius=bond_radius)
+        return
+    def plot_cost_cation_environments(self, bond_radius=0.05, 
+                                      bond_colour=(0.7, 0.7, 0.7)):
+        """Plots cation environments round all non zero anion costs"""
+        cost_sites = np.transpose(self.costs.nonzero())
+        for ais in cost_sites:
+            self.plot_nearest_cations(tuple(ais), bond_radius, bond_colour)
+        return
 
 #Example follows:
 test_anions = np.array([[[-8, 0],
