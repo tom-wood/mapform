@@ -1,7 +1,8 @@
 #Version 0.2.3 alpha
 #Changes made 05/01/17: redid plot_cations() to return list of scenes;
 #added animate_cations() function; fixed bug in plot_cell() to allow
-#scale to be a float; added plot_cost_cation_environments() method.
+#scale to be a float; added plot_cost_cation_environments() method;
+#added mikey_cation_convention attribute to FccStructure
 
 import numpy as np
 from mayavi import mlab
@@ -12,13 +13,15 @@ class FccStructure:
     def __init__(self, anions, cations, key={2:[(0.3, 0.3, 0.3), 0.5],
                                              1:[(0.3, 0.6, 0.3), 0.5],
                                              -8:[(1, 0, 0), 0.5]},
-                 costs=None, scale=1, cation_holes='tetrahedral'):
+                 costs=None, scale=1, cation_holes='tetrahedral',
+                 mikey_cation_convention=True):
         self.anions = anions
         self.cations = cations
         self.key = key
         self.costs = costs
         self.scale = scale
         self.cation_holes = cation_holes
+        self.mikey_cation_convention = mikey_cation_convention
     def get_uc_vertices(self):
         """Return array with rows corresponding to unit cell vertices"""
         x, y, z = self.anions.shape
@@ -77,13 +80,21 @@ class FccStructure:
         """Return mlab points3d instances for each type of cation"""
         f = mlab.gcf()
         f.scene.disable_render=True
+        if self.mikey_cation_convention:
+            N = self.cations.shape[0]
+            cats = np.concatenate((self.cations[:, :, 1:].\
+                                   reshape((N, N, N - 1)),
+                                   self.cations[:, :, 0].\
+                                   reshape((N, N, 1))), axis=2)
+        else:
+            cats = self.cations
         pts = []
         for i in self.key:
             if i <= 0:
                 continue
             if self.cation_holes == 'tetrahedral':
                 x, y, z = [(arr + 0.5) * self.scale for arr in 
-                           np.where(self.cations == i)]
+                           np.where(cats == i)]
             elif self.cation_holes == 'octahedral':
                 exp_cats = self.repeat_array(self.cations)
                 xyz_ans = np.transpose(np.where(self.repeat_array(\
@@ -104,6 +115,12 @@ class FccStructure:
         f = mlab.gcf()
         x_vals, y_vals, z_vals = [], [], []
         for cats in cat_list:
+            if self.mikey_cation_convention:
+                N = cats.shape[0]
+                cats = np.concatenate((cats[:, :, 1:].\
+                                       reshape((N, N, N - 1)),
+                                       cats[:, :, 0].reshape((N, N, 1))), 
+                                      axis=2)
             xvs, yvs, zvs = [], [], []
             for i in self.key:
                 if i <= 0:
@@ -311,12 +328,18 @@ class FccStructure:
         cat_is = np.column_stack((np.mod(cat_pos[:, 0], a),
                                   np.mod(cat_pos[:, 1], b),
                                   np.mod(cat_pos[:, 2], c))) 
+        if self.mikey_cation_convention:
+            N = self.cations.shape[0]
+            cations = np.concatenate((self.cations[:, :, 1:].\
+                                      reshape((N, N, N - 1)),
+                                      self.cations[:, :, 0].\
+                                      reshape((N, N, 1))), axis=2)
         #return cat_pos, cat_is
         for i in self.key:
             cats = np.array([arr for i1, arr in enumerate(cat_pos) if 
                              list(cat_is[i1]) in 
                              [list(arr2) for arr2 in 
-                              np.transpose(np.where(self.cations == i))]],
+                              np.transpose(np.where(cations == i))]],
                             dtype='float64')
             if self.cation_holes == 'tetrahedral':
                 cats += 0.5
@@ -355,7 +378,8 @@ oct_cats = np.where(test_anions == 0, 2, 0)
 #colour (normalized rgb values) and then a scalar for the atom size wanted)
 key={2:[(0.3, 0.3, 0.3), 0.5], 1:[(0.3, 0.6, 0.3), 0.5],
      -8:[(1, 0, 0), 0.5]}
-test = FccStructure(test_anions, test_cats, costs=costs, key=key)
+test = FccStructure(test_anions, test_cats, costs=costs, key=key,
+                    mikey_cation_convention=False)
 test_oct = FccStructure(test_anions, oct_cats, costs=costs, key=key,
                         cation_holes='octahedral')
 
