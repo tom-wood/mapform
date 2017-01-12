@@ -1,9 +1,6 @@
-#Version 0.2.3 alpha
-#Changes made 05/01/17: redid plot_cations() to return list of scenes;
-#added animate_cations() function; fixed bug in plot_cell() to allow
-#scale to be a float; added plot_cost_cation_environments() method;
-#added mikey_cation_convention attribute to FccStructure
-
+#Version 0.2.4 alpha
+#Changes made 12/01/17: redid animate_anion_costs() to make different
+#figures each time
 import numpy as np
 from mayavi import mlab
 import itertools as it
@@ -264,7 +261,6 @@ class FccStructure:
             colour_zero (tup): normalized rgb value of zero cost colour
             (defaults to black).
         """
-        f = mlab.gcf()
         xyz = self.repeat_array(self.anions).nonzero()
         cost_arrs = [self.repeat_array(c)[xyz] for c in anion_costs]
         cost_arrs_s = [(np.abs(c) + 0.5) * 0.5 for c in cost_arrs]
@@ -273,26 +269,21 @@ class FccStructure:
                                                colour_zero) for c in
                      cost_arrs]
         scalars = np.arange(len(col_lists[0]))
-        #plot first in list
-        f.scene.disable_render=True
-        pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[0], 
-                            cost_arrs_s[0], cost_arrs_s[0], scalars=scalars,
-                            mode='sphere', resolution=32, scale_factor=1)
-        pts.glyph.color_mode = 'color_by_scalar'
-        pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
-        pts.module_manager.scalar_lut_manager.lut.table = col_lists[0]
-        mlab.draw()
-        f.scene.disable_render = False
-        #now set the costs_s and look-up table values for each anion_costs
-        for i in range(1, len(cost_arrs)):
-            time.sleep(1)
-            f.scene.disable_render=True
-            pts.mlab_source.set(u=cost_arrs_s[i], v=cost_arrs_s[i],
-                                w=cost_arrs_s[i])
+        for i in range(len(cost_arrs)):
+            f = mlab.figure()
+            f.scene.disable_render = True
+            mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i],
+                          cost_arrs_s[i], cost_arrs_s[i], scalars=scalars,
+                          mode='sphere', resolution=32, scale_factor=1)
+            pts.glyph.color_mode = 'color_by_scalar'
+            pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
             pts.module_manager.scalar_lut_manager.lut.table = col_lists[i]
             mlab.draw()
             f.scene.disable_render = False
-        return
+            time.sleep(1)
+            if i != len(cost_arrs) - 1:
+                mlab.close(f)
+        return f
     def plot_anion_costs_cmap(self, cm='seismic'):
         """Plots anion costs on anion positions by size and colourmap"""
         xyz = self.repeat_array(self.anions).nonzero()
