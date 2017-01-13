@@ -26,7 +26,7 @@ class FccStructure:
                         [x, y, 0], [x, 0, z], [0, y, z], [x, y, z]])
         ucv = ucv.astype('float64') * self.scale
         return ucv
-    def get_ucpaths(self):
+    def get_ucpaths(self, scale=1):
         """Return series of paths which combined plot out a unit cell"""
         verts = self.get_uc_vertices()
         faces = np.vstack((verts[:2], verts[4], verts[2], verts[0], verts[3],
@@ -34,19 +34,35 @@ class FccStructure:
         strut1 = np.vstack((verts[1], verts[5]))
         strut2 = np.vstack((verts[2], verts[6]))
         strut3 = np.vstack((verts[4], verts[7]))
-        return [np.array(np.transpose(arr), dtype='float64') for arr in 
-                 [faces, strut1, strut2, strut3]]
-    def plot_cell(self, cell_colour=(0, 0, 0)):
+        return [np.array(np.transpose(arr), dtype='float64') * scale for 
+                arr in [faces, strut1, strut2, strut3]]
+    def _plot_cell(self, cell_colour=(0, 0, 0), fake_cell=False):
         """Plots the unit cell"""
-        ucpaths = self.get_ucpaths()
+        if fake_cell:
+            ucpaths = self.get_ucpaths(scale=1.2)
+            alpha = 0.
+        else:
+            ucpaths = self.get_ucpaths()
+            alpha = 1.
         ucp1 = mlab.plot3d(ucpaths[0][0], ucpaths[0][1], ucpaths[0][2], 
-                           color=cell_colour, tube_radius=None)
+                           color=cell_colour, tube_radius=None,
+                           opacity=alpha)
         ucp2 = mlab.plot3d(ucpaths[1][0], ucpaths[1][1], ucpaths[1][2], 
-                           color=cell_colour, tube_radius=None)
+                           color=cell_colour, tube_radius=None,
+                           opacity=alpha)
         ucp3 = mlab.plot3d(ucpaths[2][0], ucpaths[2][1], ucpaths[2][2], 
-                           color=cell_colour, tube_radius=None)
+                           color=cell_colour, tube_radius=None,
+                           opacity=alpha)
         ucp4 = mlab.plot3d(ucpaths[3][0], ucpaths[3][1], ucpaths[3][2], 
-                           color=cell_colour, tube_radius=None)
+                           color=cell_colour, tube_radius=None,
+                           opacity=alpha)
+        return
+    def plot_cell(self, cell_colour=(0, 0, 0), fake_cell=False):
+        """Plots the unit cell"""
+        self._plot_cell(cell_colour, False) 
+        if fake_cell:
+            self._plot_cell(cell_colour, True)
+        return
     def repeat_anions(self, anions):#this method is now deprecated
         """Returns expanded anion array (atoms at zero also at one)"""
         exp_anions = np.zeros([i + 1 for i in anions.shape], 
@@ -273,7 +289,6 @@ class FccStructure:
         for i in range(len(cost_arrs)):
             f = mlab.figure()
             f.scene.disable_render = True
-            self.plot_cell()
             pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i],
                                 cost_arrs_s[i], cost_arrs_s[i], 
                                 scalars=scalars, mode='sphere', 
@@ -305,7 +320,7 @@ class FccStructure:
             (defaults to black).
             fnames (list): list of file names to save figures as
         """
-        self.plot_cell()
+        self.plot_cell(fake_cell=True)
         f = mlab.gcf()
         xyz = self.repeat_array(self.anions).nonzero()
         cost_arrs = [self.repeat_array(c)[xyz] for c in anion_costs]
@@ -332,7 +347,7 @@ class FccStructure:
             time.sleep(1)
             f.scene.disable_render=True
             mlab.clf()
-            self.plot_cell()
+            self.plot_cell(fake_cell=True)
             pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i], 
                                 cost_arrs_s[i], cost_arrs_s[i], 
                                 scalars=scalars, mode='sphere', 
