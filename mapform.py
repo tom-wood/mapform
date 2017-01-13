@@ -268,8 +268,7 @@ class FccStructure:
         cost_arrs_s = [(np.abs(c) + 0.5) * 0.5 for c in cost_arrs]
         xyz = [arr * self.scale for arr in xyz]
         col_lists = [self._get_anion_cost_cols(c, colour_min, colour_max,
-                                               colour_zero) for c in
-                     cost_arrs]
+                     colour_zero) for c in cost_arrs]
         scalars = np.arange(len(col_lists[0]))
         for i in range(len(cost_arrs)):
             f = mlab.figure()
