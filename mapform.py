@@ -359,6 +359,7 @@ class FccStructure:
             self.plot_nearest_cations(tuple(ais), bond_radius, bond_colour)
         return
 
+"""
 #Example follows:
 test_anions = np.array([[[-8, 0],
                          [0, -8]],
@@ -380,7 +381,6 @@ test = FccStructure(test_anions, test_cats, costs=costs, key=key,
 test_oct = FccStructure(test_anions, oct_cats, costs=costs, key=key,
                         cation_holes='octahedral')
 
-"""
 mlab.figure()
 test.plot_cell()
 test.plot_anions()
