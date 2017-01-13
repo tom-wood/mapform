@@ -329,12 +329,16 @@ class FccStructure:
             mlab.savefig(fnames[0], figure=f)
         #now set the costs_s and look-up table values for each anion_costs
         for i in range(1, len(cost_arrs)):
-            mlab.clf()
             time.sleep(1)
             f.scene.disable_render=True
+            mlab.clf()
             self.plot_cell()
-            pts.mlab_source.set(u=cost_arrs_s[i], v=cost_arrs_s[i],
-                                w=cost_arrs_s[i])
+            pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i], 
+                                cost_arrs_s[i], cost_arrs_s[i], 
+                                scalars=scalars, mode='sphere', 
+                                resolution=32, scale_factor=1)
+            pts.glyph.color_mode = 'color_by_scalar'
+            pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
             pts.module_manager.scalar_lut_manager.lut.table = col_lists[i]
             mlab.draw()
             f.scene.disable_render = False
