@@ -248,7 +248,8 @@ class FccStructure:
         f.scene.disable_render = False
         return pts
     def animate_anion_costs(self, anion_costs, colour_min=(0, 0, 1), 
-                            colour_max=(1, 0, 0), colour_zero=(0, 0, 0)):
+                            colour_max=(1, 0, 0), colour_zero=(0, 0, 0),
+                            fnames=None):
         """Animates anion cost functions
         
         Args:
@@ -260,6 +261,7 @@ class FccStructure:
             (defaults to red).
             colour_zero (tup): normalized rgb value of zero cost colour
             (defaults to black).
+            fnames (list): list of file names to save figures as
         """
         xyz = self.repeat_array(self.anions).nonzero()
         cost_arrs = [self.repeat_array(c)[xyz] for c in anion_costs]
@@ -272,14 +274,18 @@ class FccStructure:
         for i in range(len(cost_arrs)):
             f = mlab.figure()
             f.scene.disable_render = True
-            mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i],
-                          cost_arrs_s[i], cost_arrs_s[i], scalars=scalars,
-                          mode='sphere', resolution=32, scale_factor=1)
+            self.plot_cell()
+            pts = mlab.quiver3d(xyz[0], xyz[1], xyz[2], cost_arrs_s[i],
+                                cost_arrs_s[i], cost_arrs_s[i], 
+                                scalars=scalars, mode='sphere', 
+                                resolution=32, scale_factor=1)
             pts.glyph.color_mode = 'color_by_scalar'
             pts.glyph.glyph_source.glyph_source.center = [0, 0, 0]
             pts.module_manager.scalar_lut_manager.lut.table = col_lists[i]
             mlab.draw()
             f.scene.disable_render = False
+            if fnames:
+                mlab.savefig(fnames[i], figure=f)
             time.sleep(1)
             if i != len(cost_arrs) - 1:
                 mlab.close(f)
